@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+{% block title %}Trang chủ Giáo viên{% endblock %}
+{% block content %}
+<div class="space-y-8">
+    {% if section == 'home' %}
+    <!-- Trang chủ: Danh sách buổi học -->
+    <div>
+        <h1 class="text-2xl font-bold mb-4">Danh sách buổi học</h1>
+        <div class="bg-white p-6 rounded shadow-md">
+            {% if classes %}
+                <ul class="space-y-4">
+                    {% for class in classes %}
+                    <li class="border p-4 rounded flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-semibold">{{ class.name }}</h3>
+                            <p>Lớp: {{ class.class_name }}</p>
+                            <p>Ngày: {{ class.date }}</p>
+                            <p>Thời gian: {{ class.time }}</p>
+                            <p>Trạng thái: {{ 'Đã kết thúc' if class.is_ended else 'Chưa kết thúc' }}</p>
+                        </div>
+                        <!-- Nút trên màn hình lớn -->
+                        <div class="hidden md:flex space-x-2">
+                            <a href="/meeting/{{ class.id }}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Join</a>
+                            <button onclick="showEditForm({{ class.id }}, '{{ class.date }}', '{{ class.time }}')" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Chỉnh sửa</button>
+                            <button onclick="deleteClass({{ class.id }})" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Xóa</button>
+                        </div>
+                        <!-- Nút menu trên màn hình nhỏ -->
+                        <div class="md:hidden relative group">
+                            <button id="menu-btn-{{ class.id }}" class="bg-gray-300 text-white px-3 py-2 rounded hover:bg-gray-400 focus:outline-none">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+                                </svg>
+                            </button>
+                            <div id="menu-{{ class.id }}" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <a href="/meeting/{{ class.id }}" class="block px-4 py-2 text-blue-500 hover:bg-blue-100">Join</a>
+                                <button onclick="showEditForm({{ class.id }}, '{{ class.date }}', '{{ class.time }}'); closeMenu('{{ class.id }}')" class="block w-full text-left px-4 py-2 text-yellow-500 hover:bg-yellow-100">Chỉnh sửa</button>
+                                <button onclick="deleteClass({{ class.id }})" class="block w-full text-left px-4 py-2 text-red-500 hover:bg-red-100">Xóa</button>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Chưa có buổi học nào.</p>
+            {% endif %}
+        </div>
+        <!-- Form chỉnh sửa buổi học (ẩn mặc định) -->
+        <div id="editClassForm" class="hidden mt-4 bg-white p-6 rounded shadow-md">
+            <h2 class="text-xl mb-4">Chỉnh sửa buổi học</h2>
+            <form id="updateClassForm" class="space-y-4">
+                <input type="hidden" id="editClassId">
+                <div>
+                    <label for="editDate" class="block text-sm font-medium text-gray-700">Ngày học</label>
+                    <input type="date" id="editDate" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="editTime" class="block text-sm font-medium text-gray-700">Thời gian</label>
+                    <input type="time" id="editTime" class="w-full p-2 border rounded" required>
+                </div>
+                <button type="submit" class="w-full bg-yellow-500 text-white p-2 rounded hover:bg-yellow-600">Cập nhật</button>
+            </form>
+        </div>
+    </div>
+
+    {% elif section == 'joined-classes' %}
+    <!-- Danh sách lớp học đã tham gia -->
+    <div>
+        <h1 class="text-2xl font-bold mb-4">Lớp học đã tham gia</h1>
+        <div class="bg-white p-6 rounded shadow-md">
+            {% if joined_classes %}
+                <ul class="space-y-4">
+                    {% for class in joined_classes %}
+                    <li class="border p-4 rounded flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-semibold">{{ class.name }}</h3>
+                            <p>Lớp: {{ class.class_name }}</p>
+                            <p>Ngày: {{ class.date }}</p>
+                            <p>Thời gian: {{ class.time }}</p>
+                            <p>Trạng thái: {{ 'Đã kết thúc' if class.is_ended else 'Chưa kết thúc' }}</p>
+                        </div>
+                        <!-- Nút trên màn hình lớn -->
+                        <div class="hidden md:flex space-x-2">
+                            <a href="/meeting/{{ class.id }}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Join</a>
+                            <button onclick="showEditForm('{{ class.id }}, '{{ class.date }}', '{{ class.time }}')" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Chỉnh sửa</button>
+                            <button onclick="deleteClass({{ class.id }})" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Xóa</button>
+                        </div>
+                        <!-- Nút menu trên màn hình nhỏ -->
+                        <div class="md:hidden relative group">
+                            <button id="menu-btn-joined-{{ class.id }}" class="bg-gray-300 text-white px-3 py-2 rounded hover:bg-gray-400 focus:outline-none">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+                                </svg>
+                            </button>
+                            <div id="menu-joined-{{ class.id }}" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <a href="/meeting/{{ class.id }}" class="block px-4 py-2 text-blue-500 hover:bg-blue-100">Join</a>
+                                <button onclick="showEditForm({{ class.id }}, '{{ class.date }}', '{{ class.time }}'); closeMenu('joined-{{ class.id }}')" class="block w-full text-left px-4 py-2 text-yellow-500 hover:bg-yellow-100">Chỉnh sửa</button>
+                                <button onclick="deleteClass({{ class.id }})" class="block w-full text-left px-4 py-2 text-red-500 hover:bg-red-100">Xóa</button>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Chưa có buổi học nào đã tham gia.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% elif section == 'create-class' %}
+    <!-- Tạo buổi học -->
+    <div>
+        <h1 class="text-2xl font-bold mb-4">Tạo buổi học</h1>
+        <div class="bg-white p-6 rounded shadow-md">
+            <form id="createClassForm" class="space-y-4">
+                <div>
+                    <label for="className" class="block text-sm font-medium text-gray-700">Tiêu đề buổi học</label>
+                    <input type="text" id="className" placeholder="Tiêu đề buổi học" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="classId" class="block text-sm font-medium text-gray-700">Chọn lớp học</label>
+                    <select id="classId" class="w-full p-2 border rounded" required>
+                        <option value="">Chọn lớp học</option>
+                        {% for class in class_list %}
+                        <option value="{{ class.id }}">{{ class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="date" class="block text-sm font-medium text-gray-700">Ngày học</label>
+                    <input type="date" id="date" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="time" class="block text-sm font-medium text-gray-700">Thời gian học</label>
+                    <input type="time" id="time" class="w-full p-2 border rounded" required>
+                </div>
+                <button type="submit" class="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600">Tạo buổi học</button>
+            </form>
+            <p id="createClassMessage" class="mt-2 text-center text-green-500"></p>
+        </div>
+    </div>
+
+    {% elif section == 'create-student' %}
+    <!-- Tạo tài khoản học sinh -->
+    <div>
+        <h1 class="text-2xl font-bold mb-4">Tạo tài khoản học sinh</h1>
+        <div class="bg-white p-6 rounded shadow-md">
+            <h2 class="text-xl mb-4">Tạo từng tài khoản</h2>
+            <form id="createStudentForm" class="space-y-4">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email học sinh (@st.neu.edu.vn)</label>
+                    <input type="email" id="email" placeholder="Email học sinh" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Tên học sinh</label>
+                    <input type="text" id="name" placeholder="Tên học sinh" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="class_name" class="block text-sm font-medium text-gray-700">Tên lớp</label>
+                    <input type="text" id="class_name" placeholder="Tên lớp" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Mật khẩu</label>
+                    <input type="password" id="password" placeholder="Mật khẩu" class="w-full p-2 border rounded" required>
+                </div>
+                <button type="submit" class="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600">Tạo tài khoản</button>
+            </form>
+            <p id="message" class="mt-2 text-center text-green-500"></p>
+
+            <h2 class="text-xl mt-6 mb-4">Tạo hàng loạt bằng file Excel</h2>
+            <form id="bulkCreateStudentForm" enctype="multipart/form-data" class="space-y-4">
+                <div>
+                    <label for="file" class="block text-sm font-medium text-gray-700">Chọn file Excel (Cột 1: Email, Cột 2: Tên, Cột 3: Lớp)</label>
+                    <input type="file" id="file" name="file" accept=".xlsx" class="w-full p-2 border rounded" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Tải lên và tạo</button>
+            </form>
+            <p id="bulkMessage" class="mt-2 text-center text-green-500"></p>
+        </div>
+    </div>
+
+    {% elif section == 'emotion-charts' %}
+    <!-- Danh sách lớp học để xem biểu đồ cảm xúc -->
+    <div>
+        <h1 class="text-2xl font-bold mb-4">Xem biểu đồ cảm xúc</h1>
+        <div class="bg-white p-6 rounded shadow-md">
+            {% if classes_for_charts %}
+                <ul class="space-y-4">
+                    {% for class in classes_for_charts %}
+                    <li class="border p-4 rounded flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-semibold">{{ class.name }}</h3>
+                            <p>Lớp: {{ class.class_name }}</p>
+                            <p>Ngày: {{ class.date }}</p>
+                            <p>Thời gian: {{ class.time }}</p>
+                            <p>Trạng thái: {{ 'Đã kết thúc' if class.is_ended else 'Đang diễn ra' }}</p>
+                        </div>
+                        <a href="/emotion_chart/{{ class.id }}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Xem biểu đồ</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Chưa có lớp học nào để xem biểu đồ cảm xúc.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.getElementById('createStudentForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value;
+    const name = document.getElementById('name').value;
+    const class_name = document.getElementById('class_name').value;
+    const password = document.getElementById('password').value;
+    const response = await fetch('/create_student', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name, class_name, password })
+    });
+    const data = await response.json();
+    document.getElementById('message').textContent = data.message;
+});
+
+document.getElementById('bulkCreateStudentForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('file', document.getElementById('file').files[0]);
+    const response = await fetch('/bulk_create_students', {
+        method: 'POST',
+        body: formData
+    });
+    const data = await response.json();
+    document.getElementById('bulkMessage').textContent = data.message;
+});
+
+document.getElementById('createClassForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('className').value;
+    const class_id = document.getElementById('classId').value;
+    const date = document.getElementById('date').value;
+    const time = document.getElementById('time').value;
+    const response = await fetch('/create_class', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, class_id, date, time })
+    });
+    const data = await response.json();
+    document.getElementById('createClassMessage').textContent = data.message;
+    if (response.ok) {
+        setTimeout(() => window.location.href = '/teacher_home?section=home', 1000);
+    }
+});
+
+function showEditForm(classId, date, time) {
+    document.getElementById('editClassForm').classList.remove('hidden');
+    document.getElementById('editClassId').value = classId;
+    document.getElementById('editDate').value = date;
+    document.getElementById('editTime').value = time;
+}
+
+document.getElementById('updateClassForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const classId = document.getElementById('editClassId').value;
+    const date = document.getElementById('editDate').value;
+    const time = document.getElementById('editTime').value;
+    const response = await fetch(`/update_class/${classId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, time })
+    });
+    const data = await response.json();
+    alert(data.message);
+    if (response.ok) {
+        window.location.href = '/teacher_home?section=home';
+    }
+});
+
+function deleteClass(classId) {
+    if (confirm('Bạn có chắc chắn muốn xóa buổi học này?')) {
+        fetch(`/delete_class/${classId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            if (data.message === 'Xóa buổi học thành công') {
+                window.location.href = '/teacher_home?section=home';
+            }
+        });
+    }
+}
+
+// Hỗ trợ thiết bị cảm ứng: chạm để hiện/ẩn dropdown
+document.querySelectorAll('[id^="menu-btn-"]').forEach(btn => {
+    btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const menuId = btn.id.replace('menu-btn-', 'menu-');
+        const menu = document.getElementById(menuId);
+        menu.classList.toggle('opacity-0');
+        menu.classList.toggle('opacity-100');
+    });
+});
+
+document.querySelectorAll('[id^="menu-btn-joined-"]').forEach(btn => {
+    btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const menuId = btn.id.replace('menu-btn-joined-', 'menu-joined-');
+        const menu = document.getElementById(menuId);
+        menu.classList.toggle('opacity-0');
+        menu.classList.toggle('opacity-100');
+    });
+});
+
+// Đóng menu khi chạm ra ngoài trên thiết bị cảm ứng
+document.addEventListener('touchstart', (e) => {
+    // Đóng menu của section "Danh sách buổi học"
+    document.querySelectorAll('[id^="menu-"]').forEach(menu => {
+        if (!menu.id.startsWith('menu-joined-')) {
+            const btn = document.getElementById(`menu-btn-${menu.id.replace('menu-', '')}`);
+            if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.add('opacity-0');
+                menu.classList.remove('opacity-100');
+            }
+        }
+    });
+
+    // Đóng menu của section "Lớp học đã tham gia"
+    document.querySelectorAll('[id^="menu-joined-"]').forEach(menu => {
+        const btn = document.getElementById(`menu-btn-joined-${menu.id.replace('menu-joined-', '')}`);
+        if (!menu.contains(e.target) && !btn.contains(e.target)) {
+            menu.classList.add('opacity-0');
+            menu.classList.remove('opacity-100');
+        }
+    });
+});
+
+// Đóng menu khi click vào một nút trong dropdown
+function closeMenu(classId) {
+    const menu = document.getElementById(`menu-${classId}`);
+    if (menu) {
+        menu.classList.add('opacity-0');
+        menu.classList.remove('opacity-100');
+    }
+    const menuJoined = document.getElementById(`menu-joined-${classId}`);
+    if (menuJoined) {
+        menuJoined.classList.add('opacity-0');
+        menuJoined.classList.remove('opacity-100');
+    }
+}
+</script>
+{% endblock %}

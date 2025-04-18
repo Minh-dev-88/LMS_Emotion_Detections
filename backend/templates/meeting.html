@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buổi họp - LMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Đảm bảo khung chat có chiều cao cố định và cuộn bên trong */
+        .chat-container {
+            height: 350px; /* Chiều cao cố định cho khung chat */
+            overflow-y: auto; /* Cuộn bên trong khi tin nhắn dài hơn */
+            display: flex;
+            flex-direction: column;
+        }
+        /* Hiệu ứng sóng cho "Đang phân tích..." */
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0% { content: ''; }
+            33% { content: '.'; }
+            66% { content: '..'; }
+            100% { content: '...'; }
+        }
+        /* Đảm bảo canvas phủ lên video */
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        #localVideo, #emotionCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 0.5rem;
+        }
+        #emotionCanvas {
+            z-index: 1; /* Đặt canvas lên trên video */
+            display: none; /* Ẩn canvas vì không cần vẽ khung bao nữa */
+        }
+        /* Cảnh báo */
+        #emotionAlert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #ff4444;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Cảnh báo cảm xúc -->
+    <div id="emotionAlert"></div>
+
+    <!-- Nội dung chính (không có header và sidebar) -->
+    <div class="flex flex-col h-screen">
+        <!-- Khu vực chính -->
+        <div class="flex-1 flex">
+            <!-- Nội dung chia sẻ màn hình -->
+            <div class="flex-1 bg-white rounded-lg shadow-md m-4 relative">
+                <video id="screenShareVideo" class="w-full h-full object-cover" autoplay playsinline></video>
+                <div id="screenSharePlaceholder" class="absolute inset-0 flex items-center justify-center text-gray-500 text-lg">
+                    Nội dung hiện tại khi share màn hình
+                </div>
+            </div>
+            <!-- Khu vực chat và khung hình camera -->
+            <div class="w-80 flex flex-col m-4 space-y-4">
+                <!-- Khung hình camera -->
+                <div class="bg-purple-200 rounded-lg shadow-md h-40 relative overflow-hidden">
+                    <div class="video-container">
+                        <video id="localVideo" class="rounded-lg" autoplay playsinline muted></video>
+                        <canvas id="emotionCanvas" class="rounded-lg"></canvas>
+                    </div>
+                    <div id="cameraPlaceholder" class="absolute inset-0 flex items-center justify-center text-gray-700 rounded-lg">
+                        Khung hình hiện trên camera
+                    </div>
+                </div>
+                <!-- Khu vực chat -->
+                <div class="bg-white rounded-lg shadow-md p-4 flex-1 flex flex-col">
+                    <!-- Khung chat với người dùng -->
+                    <div id="userChat" class="flex-1 flex flex-col">
+                        <div id="chatMessages" class="chat-container space-y-6">
+                        
+                        </div>
+                        <div class="mt-4 flex space-x-2">
+                            <input id="chatInput" type="text" placeholder="Nhập tin nhắn..." class="flex-1 p-2 border rounded-lg">
+                            <button id="sendChat" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Gửi</button>
+                        </div>
+                    </div>
+                    <!-- Khung chat với AI -->
+                    <div id="aiChat" class="flex-1 flex flex-col hidden">
+                        <div id="aiChatMessages" class="chat-container space-y-2">
+                            <!-- Tin nhắn mẫu với AI -->
+                            <div class="bg-gray-200 rounded-lg p-2 w-fit self-start">Xin chào! Tôi là Chatbot AI, bạn cần giúp gì?</div>
+                        </div>
+                        <div class="mt-4 flex space-x-2">
+                            <input id="aiChatInput" type="text" placeholder="Nhập tin nhắn cho AI..." class="flex-1 p-2 border rounded-lg">
+                            <button id="sendAIChat" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Gửi</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Thanh công cụ -->
+        <div class="bg-gray-200 p-4 flex justify-center space-x-4">
+            <button id="micButton" class="bg-gray-300 p-2 rounded-full hover:bg-red-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                </svg>
+            </button>
+            <button id="cameraButton" class="bg-gray-300 p-2 rounded-full hover:bg-red-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+            </button>
+            <button id="raiseHandButton" class="bg-gray-300 p-2 rounded-full hover:bg-yellow-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                </svg>
+            </button>
+            <button id="shareScreenButton" class="bg-gray-300 p-2 rounded-full hover:bg-green-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+            </button>
+            <button id="leaveButton" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Leave</button>
+            <button id="chatbotButton" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">Chatbot AI</button>
+            <button id="chatButton" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Trò chuyện</button>
+        </div>
+    </div>
+
+    <script src="/static/js/peers.min.js"></script>
+    <script>
+        // Lấy class_id từ template
+        const classId = {{ class_id }}; // Được truyền từ Flask khi render template
+
+        let localStream = null;
+        let screenStream = null;
+        let micOn = true;
+        let cameraOn = true;
+        let isSharingScreen = false;
+        let isHandRaised = false;
+        let lastFaces = []; // Lưu trữ kết quả nhận diện gần nhất
+        let emotionHistory = []; // Lưu trữ lịch sử cảm xúc
+        let isDetecting = true; // Biến để kiểm soát vòng lặp nhận diện
+
+        const localVideo = document.getElementById('localVideo');
+        const screenShareVideo = document.getElementById('screenShareVideo');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const screenSharePlaceholder = document.getElementById('screenSharePlaceholder');
+        const userChat = document.getElementById('userChat');
+        const aiChat = document.getElementById('aiChat');
+        const chatMessages = document.getElementById('chatMessages');
+        const aiChatMessages = document.getElementById('aiChatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const aiChatInput = document.getElementById('aiChatInput');
+        const emotionCanvas = document.getElementById('emotionCanvas');
+        const emotionCtx = emotionCanvas.getContext('2d');
+        const emotionAlert = document.getElementById('emotionAlert');
+
+        // Khởi tạo webcam và mic
+        async function startMedia() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+                cameraPlaceholder.classList.add('hidden');
+                // Đợi video sẵn sàng trước khi bắt đầu nhận diện
+                localVideo.onloadedmetadata = () => {
+                    console.log('Video metadata loaded, starting emotion detection');
+                    emotionCanvas.width = localVideo.videoWidth;
+                    emotionCanvas.height = localVideo.videoHeight;
+                    startEmotionDetection();
+                };
+            } catch (err) {
+                console.error('Error accessing media devices:', err);
+                cameraPlaceholder.textContent = 'Không thể truy cập camera/mic';
+            }
+        }
+
+        // Hàm chuyển cảm xúc sang tiếng Việt
+        function translateEmotion(emotion) {
+            const emotionMap = {
+                'happy': 'vui vẻ',
+                'sad': 'buồn bã',
+                'angry': 'tức giận',
+                'fearful': 'sợ hãi',
+                'disgust': 'ghê tởm',
+                'surprise': 'ngạc nhiên',
+                'neutral': 'bình thường'
+            };
+            return emotionMap[emotion] || emotion;
+        }
+
+        // Hàm kiểm tra cảm xúc liên tục 3 lần
+        function checkEmotionConsistency() {
+            if (emotionHistory.length < 3) return;
+
+            // Lấy 3 lần nhận diện gần nhất
+            const lastThree = emotionHistory.slice(-3);
+            const emotions = lastThree.map(entry => entry.emotion);
+
+            // Kiểm tra xem cảm xúc có giống nhau trong 3 lần liên tiếp không
+            if (emotions.every(emotion => emotion === emotions[0] && emotion !== 'Unknown')) {
+                // Không hiển thị cảnh báo nếu cảm xúc là neutral
+                if (emotions[0] === 'neutral') return;
+
+                // Chuyển cảm xúc sang tiếng Việt
+                const translatedEmotion = translateEmotion(emotions[0]);
+
+                // Hiển thị cảnh báo
+                emotionAlert.textContent = `Cảnh báo: Bạn đang cảm thấy ${translatedEmotion}`;
+                emotionAlert.style.display = 'block';
+
+                // Ẩn cảnh báo sau 5 giây
+                setTimeout(() => {
+                    emotionAlert.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Hàm bắt đầu nhận diện cảm xúc
+        function startEmotionDetection() {
+            const video = localVideo;
+
+            async function detectEmotionLoop() {
+                // Dừng vòng lặp nếu isDetecting là false
+                if (!isDetecting) {
+                    console.log('Emotion detection stopped');
+                    return;
+                }
+
+                if (!cameraOn || !video.videoWidth || !video.videoHeight) {
+                    console.log('Camera off or video not ready, skipping detection');
+                    setTimeout(detectEmotionLoop, 5000); // Chờ 5 giây trước khi thử lại
+                    return;
+                }
+
+                // Chụp frame từ video
+                emotionCtx.drawImage(video, 0, 0, emotionCanvas.width, emotionCanvas.height);
+
+                // Chuyển canvas thành blob để gửi dưới dạng binary
+                emotionCanvas.toBlob(async (blob) => {
+                    if (!blob) {
+                        console.error('Failed to convert canvas to blob');
+                        setTimeout(detectEmotionLoop, 5000);
+                        return;
+                    }
+
+                    // Gửi blob đến server
+                    const formData = new FormData();
+                    formData.append('image', blob, 'frame.jpg');
+
+                    try {
+                        console.log('Sending frame to server for emotion detection');
+                        const response = await fetch('/api/detect-emotion', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const data = await response.json();
+                        if (response.ok) {
+                            console.log('Received response from server:', data);
+                            // Lưu kết quả nhận diện
+                            lastFaces = data.faces || [];
+
+                            // Lưu cảm xúc vào lịch sử và database
+                            if (lastFaces.length > 0) {
+                                lastFaces.forEach(face => {
+                                    const emotion = face.emotion;
+                                    emotionHistory.push({ emotion });
+
+                                    // Gửi yêu cầu lưu cảm xúc vào database
+                                    fetch('/api/save-emotion', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({ emotion })
+                                    })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            console.log('Emotion saved to database:', emotion);
+                                        } else {
+                                            console.error('Error saving emotion to database:', data.error);
+                                        }
+                                    })
+                                    .catch(err => console.error('Error saving emotion:', err));
+                                });
+
+                                // Kiểm tra cảm xúc liên tục
+                                checkEmotionConsistency();
+                            }
+                        } else {
+                            console.error('Error detecting emotion:', data.error);
+                            lastFaces = []; // Xóa kết quả nếu có lỗi
+                        }
+                    } catch (error) {
+                        console.error('Error connecting to emotion detection API:', error);
+                        lastFaces = []; // Xóa kết quả nếu có lỗi
+                    }
+
+                    // Lặp lại để nhận diện sau 5 giây
+                    setTimeout(detectEmotionLoop, 5000); // 5 giây một lần
+                }, 'image/jpeg', 0.8);
+            }
+
+            detectEmotionLoop();
+        }
+
+        // Tắt/mở mic
+        document.getElementById('micButton').addEventListener('click', () => {
+            if (localStream) {
+                micOn = !micOn;
+                localStream.getAudioTracks()[0].enabled = micOn;
+                document.getElementById('micButton').classList.toggle('bg-gray-300', micOn);
+                document.getElementById('micButton').classList.toggle('bg-red-500', !micOn);
+                console.log(micOn ? 'Mic turned on' : 'Mic turned off');
+            }
+        });
+
+        // Tắt/mở camera
+        document.getElementById('cameraButton').addEventListener('click', () => {
+            if (localStream) {
+                cameraOn = !cameraOn;
+                localStream.getVideoTracks()[0].enabled = cameraOn;
+                document.getElementById('cameraButton').classList.toggle('bg-gray-300', cameraOn);
+                document.getElementById('cameraButton').classList.toggle('bg-red-500', !cameraOn);
+                cameraPlaceholder.classList.toggle('hidden', cameraOn);
+                if (!cameraOn) {
+                    emotionCtx.clearRect(0, 0, emotionCanvas.width, emotionCanvas.height);
+                    lastFaces = []; // Xóa kết quả nhận diện khi tắt camera
+                    emotionHistory = []; // Xóa lịch sử cảm xúc khi tắt camera
+                    emotionAlert.style.display = 'none'; // Ẩn cảnh báo
+                }
+            }
+        });
+
+        // Giơ tay
+        document.getElementById('raiseHandButton').addEventListener('click', () => {
+            isHandRaised = !isHandRaised;
+            document.getElementById('raiseHandButton').classList.toggle('bg-gray-300', !isHandRaised);
+            document.getElementById('raiseHandButton').classList.toggle('bg-yellow-500', isHandRaised);
+            console.log(isHandRaised ? 'Hand raised' : 'Hand lowered');
+        });
+
+        // Chia sẻ màn hình
+        document.getElementById('shareScreenButton').addEventListener('click', async () => {
+            if (!isSharingScreen) {
+                try {
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    screenShareVideo.srcObject = screenStream;
+                    screenSharePlaceholder.classList.add('hidden');
+                    isSharingScreen = true;
+                    document.getElementById('shareScreenButton').classList.remove('bg-gray-300');
+                    document.getElementById('shareScreenButton').classList.add('bg-green-500');
+
+                    // Dừng chia sẻ khi người dùng nhấn "Stop sharing"
+                    screenStream.getVideoTracks()[0].onended = () => {
+                        stopScreenShare();
+                    };
+                } catch (err) {
+                    console.error('Error sharing screen:', err);
+                }
+            } else {
+                stopScreenShare();
+            }
+        });
+
+        function stopScreenShare() {
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenShareVideo.srcObject = null;
+                screenSharePlaceholder.classList.remove('hidden');
+                isSharingScreen = false;
+                document.getElementById('shareScreenButton').classList.remove('bg-green-500');
+                document.getElementById('shareScreenButton').classList.add('bg-gray-300');
+                console.log('Screen sharing stopped');
+            }
+        }
+
+        // Rời cuộc họp
+    document.getElementById('leaveButton').addEventListener('click', () => {
+            // Dừng vòng lặp nhận diện cảm xúc
+            isDetecting = false;
+
+            // Tắt camera và mic
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null; // Đặt lại localStream để tránh truy cập sau khi dừng
+            }
+            stopScreenShare();
+
+            // Gọi endpoint /leave_meeting/<class_id>
+            fetch(`/leave_meeting/${classId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => {
+                if (response.redirected) {
+                    // Nếu server trả về redirect, chuyển hướng thủ công
+                    window.location.href = response.url;
+                } else if (!response.ok) {
+                    // Nếu có lỗi từ server, hiển thị thông báo
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Unknown error');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error leaving meeting:', error);
+                alert('Đã có lỗi xảy ra khi rời buổi họp: ' + error.message);
+            });
+        });
+
+        // Hàm gửi tin nhắn (chat với người dùng)
+        function sendUserMessage() {
+            const message = chatInput.value.trim();
+            if (message) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'bg-blue-200 rounded-lg p-2 w-fit self-end'; // Tin nhắn người dùng bên phải
+                messageDiv.textContent = message;
+                chatMessages.appendChild(messageDiv);
+
+                // Phản hồi giả từ người khác (placeholder)
+                const otherMessageDiv = document.createElement('div');
+                otherMessageDiv.className = 'bg-gray-200 rounded-lg p-2 w-fit self-start'; // Tin nhắn người khác bên trái
+                otherMessageDiv.textContent = 'Đây là phản hồi giả: ' + message;
+                chatMessages.appendChild(otherMessageDiv);
+
+                chatMessages.scrollTop = chatMessages.scrollHeight; // Cuộn xuống dưới cùng
+                chatInput.value = '';
+            }
+        }
+
+        // Gửi tin nhắn (chat với người dùng) khi nhấn nút "Gửi"
+        document.getElementById('sendChat').addEventListener('click', sendUserMessage);
+
+        // Gửi tin nhắn (chat với người dùng) khi nhấn Enter
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendUserMessage();
+            }
+        });
+
+        // Hàm gửi tin nhắn (chat với AI) và gọi Gemini API
+        async function sendAIMessage() {
+            const message = aiChatInput.value.trim();
+            if (message) {
+                // Tin nhắn của người dùng
+                const userMessageDiv = document.createElement('div');
+                userMessageDiv.className = 'bg-blue-200 rounded-lg p-2 w-fit self-end'; // Tin nhắn người dùng bên phải
+                userMessageDiv.textContent = message;
+                aiChatMessages.appendChild(userMessageDiv);
+
+                // Thêm dòng "Đang phân tích..." với hiệu ứng sóng
+                const analyzingDiv = document.createElement('div');
+                analyzingDiv.className = 'self-start text-gray-500 loading-dots'; // Không có khung, chỉ là chữ
+                analyzingDiv.textContent = 'Đang phân tích';
+                analyzingDiv.id = 'analyzing-message'; // Thêm ID để dễ xóa sau
+                aiChatMessages.appendChild(analyzingDiv);
+
+                aiChatMessages.scrollTop = aiChatMessages.scrollHeight; // Cuộn xuống dưới cùng
+                aiChatInput.value = '';
+
+                // Gọi API để lấy phản hồi từ Gemini
+                try {
+                    const response = await fetch('/api/ask-ai', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ message: message })
+                    });
+
+                    // Xóa dòng "Đang phân tích..."
+                    const analyzingMessage = document.getElementById('analyzing-message');
+                    if (analyzingMessage) {
+                        analyzingMessage.remove();
+                    }
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        // Hiển thị phản hồi từ Gemini (đã được format với *, -, +)
+                        const aiMessageDiv = document.createElement('div');
+                        aiMessageDiv.className = 'bg-gray-200 rounded-lg p-2 w-fit self-start whitespace-pre-line'; // Có khung màu xám
+                        aiMessageDiv.textContent = data.response;
+                        aiChatMessages.appendChild(aiMessageDiv);
+                    } else {
+                        // Hiển thị lỗi nếu có
+                        const aiMessageDiv = document.createElement('div');
+                        aiMessageDiv.className = 'bg-gray-200 rounded-lg p-2 w-fit self-start';
+                        aiMessageDiv.textContent = 'Lỗi: ' + (data.error || 'Không thể nhận phản hồi từ AI');
+                        aiChatMessages.appendChild(aiMessageDiv);
+                    }
+                } catch (error) {
+                    // Xóa dòng "Đang phân tích..." nếu có lỗi
+                    const analyzingMessage = document.getElementById('analyzing-message');
+                    if (analyzingMessage) {
+                        analyzingMessage.remove();
+                    }
+
+                    // Hiển thị lỗi nếu không gọi được API
+                    const aiMessageDiv = document.createElement('div');
+                    aiMessageDiv.className = 'bg-gray-200 rounded-lg p-2 w-fit self-start';
+                    aiMessageDiv.textContent = 'Lỗi: Không thể kết nối đến AI';
+                    aiChatMessages.appendChild(aiMessageDiv);
+                }
+
+                aiChatMessages.scrollTop = aiChatMessages.scrollHeight; // Cuộn xuống dưới cùng
+            }
+        }
+
+        // Gửi tin nhắn (chat với AI) khi nhấn nút "Gửi"
+        document.getElementById('sendAIChat').addEventListener('click', sendAIMessage);
+
+        // Gửi tin nhắn (chat với AI) khi nhấn Enter
+        aiChatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendAIMessage();
+            }
+        });
+
+        // Chuyển đổi giữa chat với người dùng và chat với AI
+        document.getElementById('chatButton').addEventListener('click', () => {
+            userChat.classList.remove('hidden');
+            aiChat.classList.add('hidden');
+            document.getElementById('chatButton').classList.add('bg-blue-500');
+            document.getElementById('chatButton').classList.remove('bg-blue-600');
+            document.getElementById('chatbotButton').classList.remove('bg-green-500');
+            document.getElementById('chatbotButton').classList.add('bg-green-600');
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Cuộn xuống dưới cùng khi chuyển tab
+        });
+
+        document.getElementById('chatbotButton').addEventListener('click', () => {
+            userChat.classList.add('hidden');
+            aiChat.classList.remove('hidden');
+            document.getElementById('chatbotButton').classList.add('bg-green-500');
+            document.getElementById('chatbotButton').classList.remove('bg-green-600');
+            document.getElementById('chatButton').classList.remove('bg-blue-500');
+            document.getElementById('chatButton').classList.add('bg-blue-600');
+            aiChatMessages.scrollTop = aiChatMessages.scrollHeight; // Cuộn xuống dưới cùng khi chuyển tab
+        });
+
+        // Khởi động webcam khi vào buổi họp
+        window.addEventListener('load', startMedia);
+
+        // Cuộn xuống dưới cùng khi tải trang (cho cả hai khung chat)
+        window.addEventListener('load', () => {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
+        });
+    </script>
+</body>
+</html>

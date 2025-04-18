@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} - LMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-blue-600 p-4 text-white shadow-md fixed top-0 left-0 w-full z-10">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="{{ url_for('index') }}" class="text-xl font-bold">LMS</a>
+            {% if session.user_id %}
+                <div class="flex items-center space-x-4">
+                    <span>Xin chào, {{ session.name }}</span>
+                    <a href="{{ url_for('auth.logout') }}" class="bg-white text-blue-600 px-4 py-2 rounded hover:bg-gray-200">Đăng xuất</a>
+                </div>
+            {% endif %}
+        </div>
+    </nav>
+    <div class="flex">
+        <!-- Sidebar -->
+        {% if session.user_id %}
+        {% if session.role == 'admin' %}
+            <!-- Sidebar cho giáo viên -->
+            <aside class="w-64 bg-white shadow-md h-screen fixed top-16 left-0">
+                <nav class="mt-4">
+                    <a href="{{ url_for('teacher_home', section='home') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-200 {% if section == 'home' %}bg-gray-200{% endif %}">Trang chủ</a>
+                    <a href="{{ url_for('teacher_home', section='joined-classes') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-200 {% if section == 'joined-classes' %}bg-gray-200{% endif %}">Lớp học đã tham gia</a>
+                    <a href="{{ url_for('teacher_home', section='create-class') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-200 {% if section == 'create-class' %}bg-gray-200{% endif %}">Tạo lớp học</a>
+                    <a href="{{ url_for('teacher_home', section='create-student') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-200 {% if section == 'create-student' %}bg-gray-200{% endif %}">Tạo tài khoản học sinh</a>
+                    <a href="{{ url_for('teacher_home', section='emotion-charts') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-200 {% if section == 'emotion-charts' %}bg-gray-200{% endif %}">Xem biểu đồ cảm xúc</a>
+                </nav>
+            </aside>
+        {% elif session.role == 'student' %}
+            <!-- Sidebar cho học sinh -->
+            <aside class="w-64 bg-white shadow-md h-screen fixed top-16 left-0">
+                <nav class="mt-4">
+                    <a href="{{ url_for('student_home', section='home') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-200 {% if section == 'home' or not section %}bg-gray-200{% endif %}">Trang chủ</a>
+                    <a href="{{ url_for('student_home', section='joined-classes') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-200 {% if section == 'joined-classes' %}bg-gray-200{% endif %}">Lớp học đã tham gia</a>
+                    <a href="{{ url_for('student_home', section='change-password') }}" class="block px-4 py-2 text-gray-700 hover:bg-gray-200 {% if section == 'change-password' %}bg-gray-200{% endif %}">Đổi mật khẩu</a>
+                </nav>
+            </aside>
+        {% endif %}
+        {% endif %}
+        <!-- Nội dung chính -->
+        <main class="{% if session.user_id and (session.role == 'admin' or session.role == 'student') %}ml-64{% else %}ml-0{% endif %} flex-1 p-4 mt-16">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

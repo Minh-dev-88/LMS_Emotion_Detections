@@ -1,0 +1,12 @@
+flask
+flask-socketio
+mysql-connector-python
+requests
+msal
+opencv-python
+ultralytics
+deepface
+pyjwt
+flask-bcrypt
+pandas
+openpyxl

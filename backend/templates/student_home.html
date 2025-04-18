@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Trang chủ Học sinh{% endblock %}
+{% block content %}
+<div class="space-y-8">
+    <!-- Hiển thị thông báo nếu có -->
+    {% if session.message %}
+    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4" role="alert">
+        <p>{{ session.message }}</p>
+        {% set _ = session.pop('message') %} <!-- Xóa thông báo sau khi hiển thị -->
+    </div>
+    {% endif %}
+
+    {% if section == 'home' or not section %}
+    <!-- Danh sách buổi học -->
+    <h1 class="text-2xl font-bold mb-4">Danh sách buổi học</h1>
+    <div class="space-y-4">
+        {% if classes %}
+            {% for class in classes %}
+            <div class="bg-white p-4 rounded shadow-md border border-gray-200 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-semibold">{{ class.name }}</h3>
+                    <p>Lớp: {{ class.class_name }}</p>
+                    <p>Ngày: {{ class.date }}</p>
+                    <p>Thời gian: {{ class.time }}</p>
+                    <p>Trạng thái: {{ 'Đã kết thúc' if class.is_ended else 'Chưa kết thúc' }}</p>
+                </div>
+                <a href="/meeting/{{ class.id }}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Join</a>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="bg-white p-4 rounded shadow-md border border-gray-200">Chưa có buổi học nào.</p>
+        {% endif %}
+    </div>
+
+    {% elif section == 'joined-classes' %}
+    <!-- Danh sách lớp học đã tham gia -->
+    <h1 class="text-2xl font-bold mb-4">Lớp học đã tham gia</h1>
+    <div class="space-y-4">
+        {% if joined_classes %}
+            {% for class in joined_classes %}
+            <div class="bg-white p-4 rounded shadow-md border border-gray-200 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-semibold">{{ class.name }}</h3>
+                    <p>Lớp: {{ class.class_name }}</p>
+                    <p>Ngày: {{ class.date }}</p>
+                    <p>Thời gian: {{ class.time }}</p>
+                    <p>Trạng thái: {{ 'Đã kết thúc' if class.is_ended else 'Chưa kết thúc' }}</p>
+                </div>
+                <a href="/meeting/{{ class.id }}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Join</a>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="bg-white p-4 rounded shadow-md border border-gray-200">Bạn chưa tham gia buổi học nào.</p>
+        {% endif %}
+    </div>
+
+    {% elif section == 'change-password' %}
+    <!-- Đổi mật khẩu -->
+    <div>
+        <h1 class="text-2xl font-bold mb-4">Đổi mật khẩu</h1>
+        <div class="bg-white p-6 rounded shadow-md border border-gray-200">
+            <form id="changePasswordForm" class="space-y-4">
+                <div>
+                    <label for="oldPassword" class="block text-sm font-medium text-gray-700">Mật khẩu cũ</label>
+                    <input type="password" id="oldPassword" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="newPassword" class="block text-sm font-medium text-gray-700">Mật khẩu mới</label>
+                    <input type="password" id="newPassword" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label for="confirmPassword" class="block text-sm font-medium text-gray-700">Xác nhận mật khẩu mới</label>
+                    <input type="password" id="confirmPassword" class="w-full p-2 border rounded" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Đổi mật khẩu</button>
+            </form>
+            <p id="changePasswordMessage" class="mt-2 text-center text-green-500"></p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (newPassword !== confirmPassword) {
+        document.getElementById('changePasswordMessage').textContent = 'Mật khẩu mới và xác nhận mật khẩu không khớp';
+        document.getElementById('changePasswordMessage').classList.remove('text-green-500');
+        document.getElementById('changePasswordMessage').classList.add('text-red-500');
+        return;
+    }
+
+    const response = await fetch('/change_password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPassword, newPassword })
+    });
+    const data = await response.json();
+    document.getElementById('changePasswordMessage').textContent = data.message;
+    if (response.ok) {
+        document.getElementById('changePasswordMessage').classList.remove('text-red-500');
+        document.getElementById('changePasswordMessage').classList.add('text-green-500');
+        setTimeout(() => window.location.href = '/student_home?section=home', 1000);
+    } else {
+        document.getElementById('changePasswordMessage').classList.remove('text-green-500');
+        document.getElementById('changePasswordMessage').classList.add('text-red-500');
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lớp học trực tuyến</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/zoom.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4">Lớp học: {{ class_session.name }}</h1>
+        <div id="zoom-meeting" class="w-full h-screen"></div>
+        <div id="emotion-log" class="mt-4 p-4 bg-white rounded shadow-md">
+            <h2 class="text-xl font-semibold mb-2">Nhật ký cảm xúc</h2>
+            <ul id="emotion-list" class="space-y-2"></ul>
+        </div>
+    </div>
+
+    <script src="https://source.zoom.us/2.17.0/lib/vendor/react.min.js"></script>
+    <script src="https://source.zoom.us/2.17.0/lib/vendor/react-dom.min.js"></script>
+    <script src="https://source.zoom.us/2.17.0/lib/vendor/redux.min.js"></script>
+    <script src="https://source.zoom.us/2.17.0/lib/vendor/redux-thunk.min.js"></script>
+    <script src="https://source.zoom.us/2.17.0/lib/vendor/lodash.min.js"></script>
+    <script src="/static/js/zoom-meeting-2.17.0.min.js"></script>
+    <script>
+        const ZoomMtg = window.ZoomMtg;
+        ZoomMtg.setZoomJSLib('https://source.zoom.us/2.17.0/lib', '/av');
+        ZoomMtg.preLoadWasm();
+        ZoomMtg.prepareWebSDK();
+
+        ZoomMtg.init({
+            leaveUrl: '/teacher_home?section=home',
+            success: function() {
+                ZoomMtg.join({
+                    sdkKey: '{{ zoom_sdk_key }}',
+                    signature: '{{ signature }}',
+                    meetingNumber: '{{ class_session.session_id }}',
+                    userName: '{{ session.name }}',
+                    userEmail: '{{ session.email }}',
+                    passWord: '',
+                    success: function() {
+                        console.log('Joined meeting successfully');
+                        // Theo dõi sự kiện giơ tay
+                        ZoomMtg.getCurrentMeetingInfo({
+                            success: function(res) {
+                                console.log('Meeting info:', res);
+                            }
+                        });
+                    },
+                    error: function(res) {
+                        console.log('Join error:', res);
+                    }
+                });
+            },
+            error: function(res) {
+                console.log('Init error:', res);
+            }
+        });
+
+        // Ghi lại cảm xúc (giả lập)
+        function logEmotion(emotion) {
+            const emotionList = document.getElementById('emotion-list');
+            const li = document.createElement('li');
+            li.textContent = `${new Date().toLocaleTimeString()}: ${emotion}`;
+            emotionList.appendChild(li);
+        }
+
+        // Giả lập ghi nhận cảm xúc khi học sinh giơ tay
+        setInterval(() => {
+            logEmotion('Học sinh giơ tay');
+        }, 10000);
+    </script>
+</body>
+</html>
